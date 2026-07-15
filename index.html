@@ -371,6 +371,23 @@
 <footer>MVP demo · dữ liệu lưu trên trình duyệt này (localStorage) · <span class="stamp">HSK1</span></footer>
 
 <script defer src="https://cdn.jsdelivr.net/npm/hanzi-writer@3.7/dist/hanzi-writer.min.js"></script>
+<script type="module">
+/* ================= NHẬN DIỆN GIỌNG NÓI BẰNG AI CHẠY NGAY TRONG TRÌNH DUYỆT =================
+   Dùng cho thiết bị không hỗ trợ Web Speech API (Safari/iPhone/iPad).
+   Chạy hoàn toàn miễn phí trên máy người dùng (WebAssembly), không cần máy chủ, không cần API key.
+   Chỉ tải mô hình (~40MB) khi người dùng thực sự bấm nút luyện nói lần đầu (lazy-load). */
+window.__whisperPipelinePromise = null;
+window.getWhisperPipeline = function(){
+  if(!window.__whisperPipelinePromise){
+    window.__whisperPipelinePromise = (async () => {
+      const { pipeline, env } = await import('https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2/+esm');
+      env.allowLocalModels = false;
+      return await pipeline('automatic-speech-recognition', 'Xenova/whisper-tiny', { quantized: true });
+    })();
+  }
+  return window.__whisperPipelinePromise;
+};
+</script>
 <script>
 /* ================= FIX LỖI DẤU TIẾNG VIỆT (Unicode NFC) ================= */
 (function(){
@@ -1040,6 +1057,108 @@ function startSpeaking(targetText, onResult){
   }
 }
 
+function hasNativeSpeechApi(){
+  return !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+}
+
+/* ---------- Ghi âm dự phòng cho iPhone/iPad (Safari không hỗ trợ SpeechRecognition) ---------- */
+function recordAudioBlob(maxMs){
+  return new Promise((resolve, reject)=>{
+    if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+      reject(new Error('no-getusermedia')); return;
+    }
+    navigator.mediaDevices.getUserMedia({audio:true}).then(stream=>{
+      let mr;
+      try{ mr = new MediaRecorder(stream); }
+      catch(e){ stream.getTracks().forEach(t=>t.stop()); reject(e); return; }
+      const chunks = [];
+      mr.ondataavailable = e=>{ if(e.data && e.data.size>0) chunks.push(e.data); };
+      mr.onstop = ()=>{
+        stream.getTracks().forEach(t=>t.stop());
+        resolve(new Blob(chunks, {type: mr.mimeType || 'audio/webm'}));
+      };
+      mr.onerror = (e)=>{
+        stream.getTracks().forEach(t=>t.stop());
+        reject(e.error || new Error('recorder-error'));
+      };
+      mr.start();
+      setTimeout(()=>{ if(mr.state !== 'inactive') mr.stop(); }, maxMs);
+    }).catch(reject);
+  });
+}
+
+async function blobToWhisperInput(blob){
+  const arrayBuffer = await blob.arrayBuffer();
+  const AC = window.AudioContext || window.webkitAudioContext;
+  const ctx = new AC();
+  const decoded = await ctx.decodeAudioData(arrayBuffer.slice(0));
+  const targetRate = 16000;
+  const offline = new OfflineAudioContext(1, Math.ceil(decoded.duration*targetRate), targetRate);
+  const src = offline.createBufferSource();
+  src.buffer = decoded;
+  src.connect(offline.destination);
+  src.start();
+  const rendered = await offline.startRendering();
+  try{ ctx.close(); }catch(e){}
+  return rendered.getChannelData(0);
+}
+
+function withTimeout(promise, ms){
+  return Promise.race([
+    promise,
+    new Promise((_,reject)=> setTimeout(()=> reject(new Error('timeout')), ms))
+  ]);
+}
+
+// Dùng khi thiết bị (thường là iPhone/iPad) không có Web Speech API sẵn của trình duyệt.
+// Bước 1: ghi âm. Bước 2: thử chấm tự động bằng AI chạy ngay trong trình duyệt (miễn phí).
+// Nếu bước 2 không tải được (mạng yếu / máy cũ), tự chuyển sang cho người dùng tự nghe lại và tự đánh giá.
+async function startVoicePracticeFallback(targetText, opts){
+  const btn = opts.btn, resultDiv = opts.resultDiv;
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+    resultDiv.innerHTML = `<p class="muted">Trình duyệt này chưa hỗ trợ ghi âm. Hãy thử trên trình duyệt khác.</p>`;
+    return;
+  }
+  btn.textContent = '🎙️ Đang nghe... (nói ngay trong 4 giây)';
+  btn.classList.add('listening');
+  btn.disabled = true;
+  resultDiv.innerHTML = '';
+
+  let audioBlob;
+  try{
+    audioBlob = await recordAudioBlob(4000);
+  }catch(err){
+    btn.textContent = '🎤 Nhấn để nói';
+    btn.classList.remove('listening');
+    btn.disabled = false;
+    showToast('Cần cho phép truy cập microphone để dùng tính năng luyện nói.');
+    return;
+  }
+
+  btn.textContent = '⏳ Đang xử lý...';
+  resultDiv.innerHTML = `<p class="muted">Đang thử nhận diện bằng AI ngay trên máy (lần đầu có thể mất 10-20 giây để tải mô hình)...</p>`;
+
+  let autoText = null;
+  try{
+    const transcriber = await withTimeout(window.getWhisperPipeline(), 30000);
+    const audioData = await blobToWhisperInput(audioBlob);
+    const out = await withTimeout(transcriber(audioData, {language:'chinese', task:'transcribe'}), 20000);
+    autoText = ((out && out.text) || '').trim();
+  }catch(err){
+    autoText = null;
+  }
+
+  btn.textContent = '🎤 Nhấn để nói';
+  btn.classList.remove('listening');
+  btn.disabled = false;
+
+  if(autoText){
+    opts.onAutoResult(autoText);
+  }else{
+    opts.onFallback(audioBlob);
+  }
+}
+
 /* ---------- LUYỆN CÂU ---------- */
 function renderSentenceHome(){
   app.innerHTML = `
@@ -1048,7 +1167,7 @@ function renderSentenceHome(){
       <p>Bộ ${SENTENCES.length} câu mẫu thông dụng — mỗi câu có 3 bước: nghe & chọn nghĩa, sắp xếp câu, điền từ. Sau đó là phần luyện nói (tuỳ chọn).</p>
       <p class="muted">Đã luyện: ${state.sentenceRuns} lần</p>
       <button class="primary" id="startSentence">Bắt đầu luyện câu</button>
-      <p class="muted" style="margin-top:14px;">🎤 Luyện nói dùng tính năng nhận diện giọng nói có sẵn của trình duyệt (miễn phí hoàn toàn) — hoạt động tốt nhất trên Chrome hoặc Edge, cần cho phép truy cập microphone.</p>
+      <p class="muted" style="margin-top:14px;">🎤 Luyện nói hoàn toàn miễn phí — trên Chrome/Edge dùng nhận diện giọng nói có sẵn của trình duyệt; trên iPhone/iPad (Safari không hỗ trợ tính năng này) app sẽ tự chuyển sang chấm điểm bằng AI chạy ngay trên máy, nếu không tải được thì cho bạn tự ghi âm và tự so sánh với giọng mẫu. Cần cho phép truy cập microphone.</p>
     </div>`;
   document.getElementById('startSentence').onclick = startSentenceSession;
 }
@@ -1191,33 +1310,61 @@ function startSentenceSession(){
 
   function stepSpeak(s){
     const fullText = s.tokens.join('');
-    const hasApi = ('webkitSpeechRecognition' in window) || ('SpeechRecognition' in window);
-    const canSpeak = hasApi && !isIOSDevice();
     app.innerHTML = `
       <div class="card">
         <h2>Bonus · Luyện nói</h2>
         <div class="grammar-note">📘 ${s.grammar}</div>
         <div class="center hanzi" style="font-size:1.8rem; margin:10px 0;">${fullText}</div>
         <p class="pinyin center">${s.pinyin}</p>
-        ${canSpeak
-          ? `<div class="center"><button class="mic-btn" id="micBtn">🎤 Nhấn để nói</button></div><div id="speechResult"></div>`
-          : isIOSDevice()
-            ? `<p class="muted center">Thiết bị iPhone/iPad chưa hỗ trợ nhận diện giọng nói qua trình duyệt (giới hạn của Safari/iOS, không phải lỗi ứng dụng). Hãy thử trên máy tính (Chrome/Edge) hoặc điện thoại Android để dùng tính năng luyện nói.</p>`
-            : `<p class="muted center">Trình duyệt này chưa hỗ trợ nhận diện giọng nói. Hãy thử trên Chrome hoặc Edge (máy tính hoặc Android) để dùng tính năng luyện nói.</p>`}
+        <div class="center"><button class="mic-btn" id="micBtn">🎤 Nhấn để nói</button></div>
+        <div id="speechResult"></div>
         <div class="center" style="margin-top:16px;">
           <button class="secondary" id="skipSpeak">Câu tiếp theo →</button>
         </div>
       </div>`;
     document.getElementById('skipSpeak').onclick = ()=>{ idx++; nextSentence(); };
-    if(canSpeak){
-      document.getElementById('micBtn').onclick = ()=>{
-        startSpeaking(fullText, (said)=>{
-          const sim = similarity(said, fullText);
-          const verdict = sim>=0.7 ? '✅ Rất tốt!' : sim>=0.4 ? '🟡 Gần đúng, thử lại nhé' : '🔴 Chưa đúng, nghe lại và thử lại';
-          document.getElementById('speechResult').innerHTML = `<div class="speech-result">Bạn nói: <b>${said}</b><br>${verdict}</div>`;
-        });
-      };
+
+    const micBtn = document.getElementById('micBtn');
+    const resultDiv = document.getElementById('speechResult');
+
+    function showAutoVerdict(said){
+      const sim = similarity(said, fullText);
+      const verdict = sim>=0.7 ? '✅ Rất tốt!' : sim>=0.4 ? '🟡 Gần đúng, thử lại nhé' : '🔴 Chưa đúng, nghe lại và thử lại';
+      resultDiv.innerHTML = `<div class="speech-result">Bạn nói: <b>${said}</b><br>${verdict}</div>`;
     }
+
+    function showFallbackReview(audioBlob){
+      const url = URL.createObjectURL(audioBlob);
+      resultDiv.innerHTML = `
+        <div class="speech-result">
+          <p class="muted">Thiết bị này chưa tự chấm được — hãy nghe lại giọng bạn vừa ghi và so với giọng mẫu để tự đánh giá.</p>
+          <audio controls src="${url}" style="width:100%; margin:8px 0;"></audio>
+          <div class="center" style="display:flex; gap:8px; justify-content:center; flex-wrap:wrap;">
+            <button class="secondary" id="playSample">🔊 Nghe giọng mẫu</button>
+            <button class="secondary" id="selfGood">✅ Phát âm đúng</button>
+            <button class="secondary" id="selfRetry">🔄 Ghi âm lại</button>
+          </div>
+          <p id="selfNote" class="center" style="margin-top:8px;"></p>
+        </div>`;
+      document.getElementById('playSample').onclick = ()=> speak(fullText);
+      document.getElementById('selfGood').onclick = ()=>{
+        document.getElementById('selfNote').textContent = '✅ Tốt lắm!';
+      };
+      document.getElementById('selfRetry').onclick = ()=> micBtn.click();
+    }
+
+    micBtn.onclick = ()=>{
+      if(hasNativeSpeechApi() && !isIOSDevice()){
+        startSpeaking(fullText, showAutoVerdict);
+      }else{
+        startVoicePracticeFallback(fullText, {
+          btn: micBtn,
+          resultDiv: resultDiv,
+          onAutoResult: showAutoVerdict,
+          onFallback: showFallbackReview
+        });
+      }
+    };
   }
 
   nextSentence();
