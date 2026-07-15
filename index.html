@@ -1316,13 +1316,17 @@ function startSentenceSession(){
         <div class="grammar-note">📘 ${s.grammar}</div>
         <div class="center hanzi" style="font-size:1.8rem; margin:10px 0;">${fullText}</div>
         <p class="pinyin center">${s.pinyin}</p>
-        <div class="center"><button class="mic-btn" id="micBtn">🎤 Nhấn để nói</button></div>
+        <div class="center" style="display:flex; gap:8px; justify-content:center; flex-wrap:wrap;">
+          <button class="secondary" id="listenSample">🔊 Nghe câu mẫu</button>
+          <button class="mic-btn" id="micBtn">🎤 Nhấn để nói</button>
+        </div>
         <div id="speechResult"></div>
         <div class="center" style="margin-top:16px;">
           <button class="secondary" id="skipSpeak">Câu tiếp theo →</button>
         </div>
       </div>`;
     document.getElementById('skipSpeak').onclick = ()=>{ idx++; nextSentence(); };
+    document.getElementById('listenSample').onclick = ()=> speak(fullText);
 
     const micBtn = document.getElementById('micBtn');
     const resultDiv = document.getElementById('speechResult');
@@ -1330,7 +1334,14 @@ function startSentenceSession(){
     function showAutoVerdict(said){
       const sim = similarity(said, fullText);
       const verdict = sim>=0.7 ? '✅ Rất tốt!' : sim>=0.4 ? '🟡 Gần đúng, thử lại nhé' : '🔴 Chưa đúng, nghe lại và thử lại';
-      resultDiv.innerHTML = `<div class="speech-result">Bạn nói: <b>${said}</b><br>${verdict}</div>`;
+      resultDiv.innerHTML = `
+        <div class="speech-result">
+          Bạn nói: <b>${said}</b><br>${verdict}
+          <div class="center" style="margin-top:8px;">
+            <button class="secondary" id="listenSampleAgain">🔊 Nghe lại câu mẫu</button>
+          </div>
+        </div>`;
+      document.getElementById('listenSampleAgain').onclick = ()=> speak(fullText);
     }
 
     function showFallbackReview(audioBlob){
