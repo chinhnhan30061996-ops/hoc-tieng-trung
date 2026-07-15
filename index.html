@@ -371,23 +371,28 @@
 <script>
 /* ================= FIX LỖI DẤU TIẾNG VIỆT (Unicode NFC) ================= */
 (function(){
+  function normalizeNode(n){
+    if(!n.nodeValue) return;
+    var fixed = n.nodeValue.normalize('NFC');
+    // Chỉ gán lại khi thực sự khác — tránh vòng lặp vô hạn với MutationObserver
+    // (gán nodeValue dù giá trị giống hệt vẫn kích hoạt sự kiện characterData mới).
+    if(fixed !== n.nodeValue) n.nodeValue = fixed;
+  }
   function normalizeTree(root){
     var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null, false);
     var n;
-    while(n = walker.nextNode()){
-      if(n.nodeValue) n.nodeValue = n.nodeValue.normalize('NFC');
-    }
+    while(n = walker.nextNode()){ normalizeNode(n); }
   }
   normalizeTree(document.body);
   var domObserver = new MutationObserver(function(mutations){
     mutations.forEach(function(m){
-      if(m.type === 'characterData' && m.target && m.target.nodeValue){
-        m.target.nodeValue = m.target.nodeValue.normalize('NFC');
+      if(m.type === 'characterData' && m.target){
+        normalizeNode(m.target);
       }
       if(m.addedNodes){
         m.addedNodes.forEach(function(node){
           if(node.nodeType === 3){
-            if(node.nodeValue) node.nodeValue = node.nodeValue.normalize('NFC');
+            normalizeNode(node);
           } else if(node.nodeType === 1){
             normalizeTree(node);
           }
