@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>学中文 · Học Tiếng Trung</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#a3402f">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif:wght@400;600;700&family=Noto+Serif+SC:wght@400;600;700&display=swap" rel="stylesheet">
@@ -18,6 +20,11 @@
     --green:#5c7a52;
     --line:#d8c9a6;
     --shadow: 0 3px 0 rgba(59,47,38,0.18);
+    --tone1:#a3402f;
+    --tone2:#b8822a;
+    --tone3:#4c7a4f;
+    --tone4:#2f6a8a;
+    --tone5:#8a7a68;
   }
   *{box-sizing:border-box;}
   body{
@@ -192,6 +199,16 @@
     min-width:80px;
     font-size:0.9rem;
   }
+  .tone1{ color: var(--tone1); font-weight:600; }
+  .tone2{ color: var(--tone2); font-weight:600; }
+  .tone3{ color: var(--tone3); font-weight:600; }
+  .tone4{ color: var(--tone4); font-weight:600; }
+  .tone5{ color: var(--tone5); font-weight:600; }
+  .tone-legend{
+    display:flex; gap:10px; flex-wrap:wrap; font-size:0.78rem; margin-top:8px;
+  }
+  .tone-legend span{ display:inline-flex; align-items:center; gap:4px; }
+  .tone-dot{ width:9px; height:9px; border-radius:50%; display:inline-block; }
   .meaning{ flex:1; font-size:0.9rem; }
   .speak-btn{
     background:none;
@@ -363,6 +380,8 @@
   <button data-view="lessons">Bài học</button>
   <button data-view="flash">Ôn từ vựng</button>
   <button data-view="sentence">Luyện câu</button>
+  <button data-view="tones">Thanh điệu</button>
+  <button data-view="exam">Thi thử</button>
   <button data-view="progress">Tiến trình</button>
 </nav>
 
@@ -423,84 +442,124 @@ window.getWhisperPipeline = function(){
   domObserver.observe(document.body, {childList:true, subtree:true, characterData:true});
 })();
 
+/* ================= TÔ MÀU THANH ĐIỆU PINYIN ================= */
+// Trả về số thanh điệu (1-4) dựa trên dấu trên nguyên âm; không có dấu -> thanh nhẹ (5).
+function pinyinToneNum(syllable){
+  if(!syllable) return 5;
+  for(const ch of syllable){
+    if('āēīōūǖ'.includes(ch)) return 1;
+    if('áéíóúǘ'.includes(ch)) return 2;
+    if('ǎěǐǒǔǚ'.includes(ch)) return 3;
+    if('àèìòùǜ'.includes(ch)) return 4;
+  }
+  return 5;
+}
+// Tô màu từng âm tiết (cách nhau bởi khoảng trắng) trong một chuỗi pinyin theo thanh điệu.
+function colorizePinyin(str){
+  if(!str) return '';
+  return str.split(' ').map(tok=>{
+    if(!tok) return '';
+    return `<span class="tone${pinyinToneNum(tok)}">${tok}</span>`;
+  }).join(' ');
+}
+
 /* ================= DATA ================= */
 const VOCAB = [
-[1,"爱","ài","yêu"],[1,"八","bā","số tám"],[1,"爸爸","bàba","bố"],[1,"杯子","bēizi","cái cốc"],
-[1,"北京","Běijīng","Bắc Kinh"],[1,"本","běn","(loại từ cho sách)"],[1,"不客气","bú kèqi","không có gì"],
+[1,"爱","ài","yêu"],[1,"八","bā","số tám"],[1,"爸爸","bà ba","bố"],[1,"杯子","bēi zi","cái cốc"],
+[1,"北京","Běi jīng","Bắc Kinh"],[1,"本","běn","(loại từ cho sách)"],[1,"不客气","bú kè qi","không có gì"],
 [1,"不","bù","không"],[1,"菜","cài","món ăn/rau"],[1,"茶","chá","trà"],
-[2,"吃","chī","ăn"],[2,"出租车","chūzūchē","xe taxi"],[2,"打电话","dǎ diànhuà","gọi điện thoại"],
+[2,"吃","chī","ăn"],[2,"出租车","chū zū chē","xe taxi"],[2,"打电话","dǎ diàn huà","gọi điện thoại"],
 [2,"大","dà","to, lớn"],[2,"的","de","(trợ từ sở hữu)"],[2,"点","diǎn","giờ, điểm"],
-[2,"电脑","diànnǎo","máy tính"],[2,"电视","diànshì","tivi"],[2,"电影","diànyǐng","phim"],[2,"东西","dōngxi","đồ vật"],
-[3,"都","dōu","đều"],[3,"读","dú","đọc"],[3,"对不起","duìbuqǐ","xin lỗi"],[3,"多","duō","nhiều"],
-[3,"多少","duōshao","bao nhiêu"],[3,"儿子","érzi","con trai"],[3,"二","èr","số hai"],
-[3,"饭店","fàndiàn","nhà hàng/khách sạn"],[3,"飞机","fēijī","máy bay"],[3,"分钟","fēnzhōng","phút"],
-[4,"高兴","gāoxìng","vui"],[4,"个","gè","(loại từ chung)"],[4,"工作","gōngzuò","công việc"],
-[4,"狗","gǒu","con chó"],[4,"汉语","Hànyǔ","tiếng Hán"],[4,"好","hǎo","tốt, khỏe"],
+[2,"电脑","diàn nǎo","máy tính"],[2,"电视","diàn shì","tivi"],[2,"电影","diàn yǐng","phim"],[2,"东西","dōng xi","đồ vật"],
+[3,"都","dōu","đều"],[3,"读","dú","đọc"],[3,"对不起","duì bu qǐ","xin lỗi"],[3,"多","duō","nhiều"],
+[3,"多少","duō shao","bao nhiêu"],[3,"儿子","ér zi","con trai"],[3,"二","èr","số hai"],
+[3,"饭店","fàn diàn","nhà hàng/khách sạn"],[3,"飞机","fēi jī","máy bay"],[3,"分钟","fēn zhōng","phút"],
+[4,"高兴","gāo xìng","vui"],[4,"个","gè","(loại từ chung)"],[4,"工作","gōng zuò","công việc"],
+[4,"狗","gǒu","con chó"],[4,"汉语","Hàn yǔ","tiếng Hán"],[4,"好","hǎo","tốt, khỏe"],
 [4,"号","hào","số, ngày"],[4,"喝","hē","uống"],[4,"和","hé","và"],[4,"很","hěn","rất"],
-[5,"后面","hòumiàn","phía sau"],[5,"回","huí","trở về"],[5,"会","huì","biết, có thể"],
+[5,"后面","hòu miàn","phía sau"],[5,"回","huí","trở về"],[5,"会","huì","biết, có thể"],
 [5,"几","jǐ","mấy, bao nhiêu"],[5,"家","jiā","nhà, gia đình"],[5,"叫","jiào","gọi là, tên là"],
-[5,"今天","jīntiān","hôm nay"],[5,"九","jiǔ","số chín"],[5,"开","kāi","mở, lái"],[5,"看","kàn","xem, nhìn"],
-[6,"看见","kànjiàn","nhìn thấy"],[6,"块","kuài","đồng (tiền)"],[6,"来","lái","đến"],
-[6,"老师","lǎoshī","giáo viên"],[6,"了","le","(trợ từ hoàn thành)"],[6,"冷","lěng","lạnh"],
-[6,"里","lǐ","bên trong"],[6,"六","liù","số sáu"],[6,"妈妈","māma","mẹ"],[6,"吗","ma","(trợ từ nghi vấn)"],
-[7,"买","mǎi","mua"],[7,"猫","māo","con mèo"],[7,"没关系","méi guānxi","không sao"],
-[7,"没有","méiyǒu","không có"],[7,"米饭","mǐfàn","cơm"],[7,"明天","míngtiān","ngày mai"],
-[7,"名字","míngzi","tên"],[7,"哪","nǎ","nào"],[7,"哪儿","nǎr","ở đâu"],[7,"那","nà","kia, đó"],
+[5,"今天","jīn tiān","hôm nay"],[5,"九","jiǔ","số chín"],[5,"开","kāi","mở, lái"],[5,"看","kàn","xem, nhìn"],
+[6,"看见","kàn jiàn","nhìn thấy"],[6,"块","kuài","đồng (tiền)"],[6,"来","lái","đến"],
+[6,"老师","lǎo shī","giáo viên"],[6,"了","le","(trợ từ hoàn thành)"],[6,"冷","lěng","lạnh"],
+[6,"里","lǐ","bên trong"],[6,"六","liù","số sáu"],[6,"妈妈","mā ma","mẹ"],[6,"吗","ma","(trợ từ nghi vấn)"],
+[7,"买","mǎi","mua"],[7,"猫","māo","con mèo"],[7,"没关系","méi guān xi","không sao"],
+[7,"没有","méi yǒu","không có"],[7,"米饭","mǐ fàn","cơm"],[7,"明天","míng tiān","ngày mai"],
+[7,"名字","míng zi","tên"],[7,"哪","nǎ","nào"],[7,"哪儿","nǎr","ở đâu"],[7,"那","nà","kia, đó"],
 [8,"呢","ne","(trợ từ nghi vấn)"],[8,"能","néng","có thể"],[8,"你","nǐ","bạn"],[8,"年","nián","năm"],
-[8,"女儿","nǚ'ér","con gái"],[8,"朋友","péngyou","bạn bè"],[8,"漂亮","piàoliang","xinh đẹp"],
-[8,"苹果","píngguǒ","quả táo"],[8,"七","qī","số bảy"],[8,"钱","qián","tiền"],
-[9,"前面","qiánmiàn","phía trước"],[9,"请","qǐng","mời, xin"],[9,"去","qù","đi"],
-[9,"热","rè","nóng"],[9,"人","rén","người"],[9,"认识","rènshi","quen biết"],
-[9,"三","sān","số ba"],[9,"商店","shāngdiàn","cửa hàng"],[9,"上","shàng","trên, lên"],[9,"上午","shàngwǔ","buổi sáng"],
-[10,"少","shǎo","ít"],[10,"谁","shéi","ai"],[10,"什么","shénme","cái gì"],[10,"十","shí","số mười"],
-[10,"时候","shíhou","lúc, thời gian"],[10,"是","shì","là"],[10,"书","shū","sách"],
-[10,"水","shuǐ","nước"],[10,"水果","shuǐguǒ","trái cây"],[10,"睡觉","shuìjiào","ngủ"],
+[8,"女儿","nǚ ér","con gái"],[8,"朋友","péng you","bạn bè"],[8,"漂亮","piào liang","xinh đẹp"],
+[8,"苹果","píng guǒ","quả táo"],[8,"七","qī","số bảy"],[8,"钱","qián","tiền"],
+[9,"前面","qián miàn","phía trước"],[9,"请","qǐng","mời, xin"],[9,"去","qù","đi"],
+[9,"热","rè","nóng"],[9,"人","rén","người"],[9,"认识","rèn shi","quen biết"],
+[9,"三","sān","số ba"],[9,"商店","shāng diàn","cửa hàng"],[9,"上","shàng","trên, lên"],[9,"上午","shàng wǔ","buổi sáng"],
+[10,"少","shǎo","ít"],[10,"谁","shéi","ai"],[10,"什么","shén me","cái gì"],[10,"十","shí","số mười"],
+[10,"时候","shí hou","lúc, thời gian"],[10,"是","shì","là"],[10,"书","shū","sách"],
+[10,"水","shuǐ","nước"],[10,"水果","shuǐ guǒ","trái cây"],[10,"睡觉","shuì jiào","ngủ"],
 [11,"说","shuō","nói"],[11,"四","sì","số bốn"],[11,"岁","suì","tuổi"],[11,"他","tā","anh ấy"],
-[11,"她","tā","cô ấy"],[11,"太","tài","quá"],[11,"天气","tiānqì","thời tiết"],
-[11,"听","tīng","nghe"],[11,"同学","tóngxué","bạn học"],[11,"喂","wèi","alô"],
-[12,"我","wǒ","tôi"],[12,"我们","wǒmen","chúng tôi"],[12,"五","wǔ","số năm"],
-[12,"喜欢","xǐhuan","thích"],[12,"下","xià","dưới, xuống"],[12,"下午","xiàwǔ","buổi chiều"],
-[12,"下雨","xiàyǔ","trời mưa"],[12,"先生","xiānsheng","ông, quý ông"],[12,"现在","xiànzài","bây giờ"],[12,"想","xiǎng","muốn, nghĩ"],
-[13,"小","xiǎo","nhỏ"],[13,"小姐","xiǎojiě","cô"],[13,"些","xiē","một vài"],[13,"写","xiě","viết"],
-[13,"谢谢","xièxie","cảm ơn"],[13,"星期","xīngqī","tuần"],[13,"学生","xuésheng","học sinh"],
-[13,"学习","xuéxí","học tập"],[13,"学校","xuéxiào","trường học"],[13,"一","yī","số một"],
-[14,"一点儿","yìdiǎnr","một chút"],[14,"衣服","yīfu","quần áo"],[14,"医生","yīshēng","bác sĩ"],
-[14,"医院","yīyuàn","bệnh viện"],[14,"椅子","yǐzi","cái ghế"],[14,"用","yòng","dùng"],
-[14,"有","yǒu","có"],[14,"月","yuè","tháng"],[14,"在","zài","ở, đang"],[14,"怎么","zěnme","thế nào"],
-[15,"怎么样","zěnmeyàng","như thế nào"],[15,"这","zhè","này"],[15,"中国","Zhōngguó","Trung Quốc"],
-[15,"中午","zhōngwǔ","buổi trưa"],[15,"住","zhù","ở, sống"],[15,"桌子","zhuōzi","cái bàn"],
-[15,"字","zì","chữ"],[15,"昨天","zuótiān","hôm qua"],[15,"坐","zuò","ngồi"],[15,"做","zuò","làm"]
+[11,"她","tā","cô ấy"],[11,"太","tài","quá"],[11,"天气","tiān qì","thời tiết"],
+[11,"听","tīng","nghe"],[11,"同学","tóng xué","bạn học"],[11,"喂","wèi","alô"],
+[12,"我","wǒ","tôi"],[12,"我们","wǒ men","chúng tôi"],[12,"五","wǔ","số năm"],
+[12,"喜欢","xǐ huan","thích"],[12,"下","xià","dưới, xuống"],[12,"下午","xià wǔ","buổi chiều"],
+[12,"下雨","xià yǔ","trời mưa"],[12,"先生","xiān sheng","ông, quý ông"],[12,"现在","xiàn zài","bây giờ"],[12,"想","xiǎng","muốn, nghĩ"],
+[13,"小","xiǎo","nhỏ"],[13,"小姐","xiǎo jiě","cô"],[13,"些","xiē","một vài"],[13,"写","xiě","viết"],
+[13,"谢谢","xiè xie","cảm ơn"],[13,"星期","xīng qī","tuần"],[13,"学生","xué sheng","học sinh"],
+[13,"学习","xué xí","học tập"],[13,"学校","xué xiào","trường học"],[13,"一","yī","số một"],
+[14,"一点儿","yì diǎnr","một chút"],[14,"衣服","yī fu","quần áo"],[14,"医生","yī shēng","bác sĩ"],
+[14,"医院","yī yuàn","bệnh viện"],[14,"椅子","yǐ zi","cái ghế"],[14,"用","yòng","dùng"],
+[14,"有","yǒu","có"],[14,"月","yuè","tháng"],[14,"在","zài","ở, đang"],[14,"怎么","zěn me","thế nào"],
+[15,"怎么样","zěn me yàng","như thế nào"],[15,"这","zhè","này"],[15,"中国","Zhōng guó","Trung Quốc"],
+[15,"中午","zhōng wǔ","buổi trưa"],[15,"住","zhù","ở, sống"],[15,"桌子","zhuō zi","cái bàn"],
+[15,"字","zì","chữ"],[15,"昨天","zuó tiān","hôm qua"],[15,"坐","zuò","ngồi"],[15,"做","zuò","làm"]
 ].map((r,i)=>({id:i+1, lesson:r[0], hanzi:r[1], pinyin:r[2], meaning:r[3]}));
 
 const TOTAL_LESSONS = 15;
 
 /* ---- Câu mẫu HSK1: luyện nghe / sắp xếp câu / điền từ / luyện nói ---- */
 const SENTENCES = [
-  {id:1, tokens:["你好，","我","叫","小明。"], pinyin:"Nǐ hǎo, wǒ jiào Xiǎomíng.", meaning:"Xin chào, tôi tên là Tiểu Minh.",
+  {id:1, tokens:["你好，","我","叫","小明。"], pinyin:"Nǐ hǎo, wǒ jiào Xiǎo míng.", meaning:"Xin chào, tôi tên là Tiểu Minh.",
    grammar:"叫 dùng để nói tên: [Ai] + 叫 + [Tên].", blankWord:"叫", blankOptions:["叫","是","去","看"]},
-  {id:2, tokens:["我","是","学生。"], pinyin:"Wǒ shì xuésheng.", meaning:"Tôi là học sinh.",
+  {id:2, tokens:["我","是","学生。"], pinyin:"Wǒ shì xué sheng.", meaning:"Tôi là học sinh.",
    grammar:"是 nghĩa là 'là': A 是 B.", blankWord:"是", blankOptions:["是","在","有","去"]},
-  {id:3, tokens:["这","是","我","爸爸。"], pinyin:"Zhè shì wǒ bàba.", meaning:"Đây là bố tôi.",
+  {id:3, tokens:["这","是","我","爸爸。"], pinyin:"Zhè shì wǒ bà ba.", meaning:"Đây là bố tôi.",
    grammar:"这 dùng để chỉ vật/người gần (= 'đây, cái này').", blankWord:"爸爸", blankOptions:["爸爸","妈妈","朋友","老师"]},
-  {id:4, tokens:["我","喜欢","喝","茶。"], pinyin:"Wǒ xǐhuan hē chá.", meaning:"Tôi thích uống trà.",
+  {id:4, tokens:["我","喜欢","喝","茶。"], pinyin:"Wǒ xǐ huan hē chá.", meaning:"Tôi thích uống trà.",
    grammar:"喜欢 + động từ/danh từ = 'thích làm gì / thích cái gì'.", blankWord:"喜欢", blankOptions:["喜欢","喝","是","去"]},
-  {id:5, tokens:["现在","几","点？"], pinyin:"Xiànzài jǐ diǎn?", meaning:"Bây giờ mấy giờ?",
+  {id:5, tokens:["现在","几","点？"], pinyin:"Xiàn zài jǐ diǎn?", meaning:"Bây giờ mấy giờ?",
    grammar:"几 dùng để hỏi số lượng nhỏ (thường dưới 10).", blankWord:"几", blankOptions:["几","多","很","都"]},
-  {id:6, tokens:["你","有","几","个","朋友？"], pinyin:"Nǐ yǒu jǐ ge péngyou?", meaning:"Bạn có mấy người bạn?",
+  {id:6, tokens:["你","有","几","个","朋友？"], pinyin:"Nǐ yǒu jǐ ge péng you?", meaning:"Bạn có mấy người bạn?",
    grammar:"个 là loại từ chung, đứng giữa số đếm và danh từ.", blankWord:"朋友", blankOptions:["朋友","老师","学生","医生"]},
-  {id:7, tokens:["今天","天气","很","好。"], pinyin:"Jīntiān tiānqì hěn hǎo.", meaning:"Hôm nay thời tiết rất đẹp.",
+  {id:7, tokens:["今天","天气","很","好。"], pinyin:"Jīn tiān tiān qì hěn hǎo.", meaning:"Hôm nay thời tiết rất đẹp.",
    grammar:"很 + tính từ = 'rất', thường bắt buộc dùng dù không nhấn mạnh.", blankWord:"天气", blankOptions:["天气","东西","时候","朋友"]},
-  {id:8, tokens:["我","想","去","商店","买","东西。"], pinyin:"Wǒ xiǎng qù shāngdiàn mǎi dōngxi.", meaning:"Tôi muốn đi cửa hàng mua đồ.",
+  {id:8, tokens:["我","想","去","商店","买","东西。"], pinyin:"Wǒ xiǎng qù shāng diàn mǎi dōng xi.", meaning:"Tôi muốn đi cửa hàng mua đồ.",
    grammar:"想 + động từ = 'muốn làm gì'.", blankWord:"商店", blankOptions:["商店","医院","学校","饭店"]},
-  {id:9, tokens:["这个","多少","钱？"], pinyin:"Zhège duōshao qián?", meaning:"Cái này bao nhiêu tiền?",
+  {id:9, tokens:["这个","多少","钱？"], pinyin:"Zhè ge duō shao qián?", meaning:"Cái này bao nhiêu tiền?",
    grammar:"多少 dùng để hỏi số lượng lớn hoặc giá tiền.", blankWord:"钱", blankOptions:["钱","书","水","字"]},
-  {id:10, tokens:["我","的","老师","很","漂亮。"], pinyin:"Wǒ de lǎoshī hěn piàoliang.", meaning:"Cô giáo của tôi rất xinh đẹp.",
+  {id:10, tokens:["我","的","老师","很","漂亮。"], pinyin:"Wǒ de lǎo shī hěn piào liang.", meaning:"Cô giáo của tôi rất xinh đẹp.",
    grammar:"的 dùng để chỉ sở hữu: [Ai] 的 [Cái gì].", blankWord:"漂亮", blankOptions:["漂亮","高兴","冷","热"]},
-  {id:11, tokens:["明天","我们","去","北京。"], pinyin:"Míngtiān wǒmen qù Běijīng.", meaning:"Ngày mai chúng tôi đi Bắc Kinh.",
+  {id:11, tokens:["明天","我们","去","北京。"], pinyin:"Míng tiān wǒ men qù Běi jīng.", meaning:"Ngày mai chúng tôi đi Bắc Kinh.",
    grammar:"Trạng từ chỉ thời gian (明天) thường đứng đầu câu hoặc sau chủ ngữ.", blankWord:"明天", blankOptions:["明天","昨天","今天","现在"]},
-  {id:12, tokens:["桌子","上","有","一","本","书。"], pinyin:"Zhuōzi shàng yǒu yì běn shū.", meaning:"Trên bàn có một quyển sách.",
+  {id:12, tokens:["桌子","上","有","一","本","书。"], pinyin:"Zhuō zi shàng yǒu yì běn shū.", meaning:"Trên bàn có một quyển sách.",
    grammar:"有 dùng để nói 'có': [Nơi chốn] 有 [Vật].", blankWord:"书", blankOptions:["书","水果","衣服","椅子"]}
 ];
+
+/* ---- Ghi chú ngữ pháp so sánh Việt-Trung, theo từng bài học ---- */
+const LESSON_GRAMMAR = {
+  1: "本 là lượng từ cho sách/vở — tiếng Trung luôn cần lượng từ giữa số đếm và danh từ (ví dụ 一本书), khác tiếng Việt không bắt buộc có từ tương đương.",
+  2: "的 nối sở hữu theo trật tự [người sở hữu] + 的 + [vật]: 我的电脑 (máy tính của tôi) — trật tự NGƯỢC so với tiếng Việt 'của' đứng giữa nhưng vật lại đứng trước.",
+  3: "都 (đều) luôn đứng SAU chủ ngữ và TRƯỚC động từ: 我们都是学生 — người Việt hay quen đặt 'đều' tự do hơn nên dễ đặt sai vị trí.",
+  4: "Tính từ tiếng Trung làm vị ngữ trực tiếp không cần 是 (là), thường đi kèm 很: 我很好 (tôi khỏe) — không thêm 是 như phản xạ từ tiếng Việt 'tôi là khỏe'.",
+  5: "几 dùng hỏi số lượng NHỎ và luôn cần lượng từ đi kèm (几个人); 多少 dùng cho số lượng bất kỳ và KHÔNG cần lượng từ (多少钱).",
+  6: "了 đặt sau động từ để chỉ hành động đã hoàn thành: 我看见了 (tôi đã nhìn thấy) — đừng nhầm với 'rồi' trong tiếng Việt vì cách dùng 了 phức tạp và có nhiều trường hợp ngoại lệ hơn.",
+  7: "Phủ định cho 有 (có) và hành động ĐÃ xảy ra dùng 没(有): 我没有钱 / 我没去 — khác 不 vốn dùng cho phủ định thông thường/thói quen (我不去 = tôi không đi, ý định).",
+  8: "呢 đặt cuối câu để hỏi ngược theo ngữ cảnh trước đó: 我很好，你呢？(tôi khỏe, còn bạn?) — không dùng để hỏi câu hỏi độc lập như 吗.",
+  9: "Từ chỉ vị trí như 前面 (phía trước) đặt SAU danh từ: 桌子前面 (phía trước cái bàn) — ngược trật tự so với tiếng Việt.",
+  10: "Từ để hỏi tiếng Trung (谁, 什么, 什么时候...) đứng ĐÚNG vị trí của từ được hỏi trong câu, không đảo lên đầu câu — giống trật tự tiếng Việt: 你是谁？(bạn là ai?).",
+  11: "太 + tính từ + 了 = quá mức: 太贵了 (quá đắt) — 了 ở đây KHÔNG chỉ hoàn thành như bài 6 mà mang sắc thái cảm thán, dễ gây nhầm lẫn.",
+  12: "喜欢 và 想 đứng trực tiếp trước động từ hoặc danh từ, không cần giới từ nối: 我想去 (tôi muốn đi), 我喜欢喝茶 (tôi thích uống trà).",
+  13: "一 khi đứng trước lượng từ sẽ đổi thanh khi nói (biến điệu) dù chữ viết vẫn là 一 — hiện tượng biến điệu này không có trong tiếng Việt nên dễ bị đọc sai.",
+  14: "在 chỉ vị trí đứng TRƯỚC động từ: 我在北京工作 (tôi làm việc ở Bắc Kinh) — khác tiếng Việt đặt 'ở' sau động từ (làm việc ở Bắc Kinh).",
+  15: "这/那 khi đi với danh từ số ít cần thêm lượng từ ở giữa: 这个人 (người này) chứ không nói trống 这人 trong văn nói trang trọng, tương tự quy tắc 一 + lượng từ ở bài 13."
+};
 
 /* ================= STATE / STORAGE ================= */
 const STORE_KEY = "hoctiengtrung_v1";
@@ -512,7 +571,9 @@ function loadState(){
     completedLessons:{},   // lessonNum -> true
     boxes:{},               // wordId -> {box:1-5, due: 'YYYY-MM-DD'}
     badges:{},               // badgeId -> true
-    sentenceRuns:0           // số lần hoàn thành phiên luyện câu
+    sentenceRuns:0,          // số lần hoàn thành phiên luyện câu
+    reminderEnabled:false,   // có bật nhắc học hằng ngày không
+    lastReminderDate:null    // ngày cuối cùng đã hiện thông báo nhắc học
   };
   const raw = localStorage.getItem(STORE_KEY);
   if(raw){ try{ return Object.assign({}, defaults, JSON.parse(raw)); }catch(e){} }
@@ -643,6 +704,8 @@ function render(view, param){
   if(view==='quiz') return renderQuiz(param);
   if(view==='flash') return renderFlash();
   if(view==='sentence') return renderSentenceHome();
+  if(view==='tones') return renderTonesHome();
+  if(view==='exam') return renderExamHome();
   if(view==='progress') return renderProgress();
 }
 
@@ -671,9 +734,26 @@ function renderHome(){
       <h2>Vì sao học HSK1 trước?</h2>
       <p class="muted">HSK1 gồm 150 từ vựng nền tảng nhất, giúp bạn nói được các câu giao tiếp cơ bản: chào hỏi, giới thiệu bản thân, hỏi giá, hỏi đường. Hoàn thành 15 bài học dưới đây để nắm trọn bộ từ vựng này.</p>
     </div>
+    <div class="card">
+      <h2>🎨 Màu sắc = thanh điệu</h2>
+      <p class="muted">Pinyin trong app được tô màu theo thanh điệu để bạn dễ nhớ — người Việt hay bị nhầm thanh dù tiếng Việt cũng có thanh điệu vì hệ thống hoàn toàn khác nhau.</p>
+      <div class="tone-legend">
+        <span><i class="tone-dot" style="background:var(--tone1)"></i> <span class="tone1">mā</span> Thanh 1</span>
+        <span><i class="tone-dot" style="background:var(--tone2)"></i> <span class="tone2">má</span> Thanh 2</span>
+        <span><i class="tone-dot" style="background:var(--tone3)"></i> <span class="tone3">mǎ</span> Thanh 3</span>
+        <span><i class="tone-dot" style="background:var(--tone4)"></i> <span class="tone4">mà</span> Thanh 4</span>
+        <span><i class="tone-dot" style="background:var(--tone5)"></i> <span class="tone5">ma</span> Thanh nhẹ</span>
+      </div>
+      <div style="margin-top:14px; display:flex; gap:10px; flex-wrap:wrap;">
+        <button class="secondary" id="goTones">🎧 Luyện thanh điệu</button>
+        <button class="secondary" id="goExam">📝 Thi thử HSK1</button>
+      </div>
+    </div>
   `;
   document.getElementById('goLessons').onclick = ()=>switchView('lessons');
   document.getElementById('goFlash').onclick = ()=>switchView('flash');
+  document.getElementById('goTones').onclick = ()=>switchView('tones');
+  document.getElementById('goExam').onclick = ()=>switchView('exam');
 }
 
 function switchView(view, param){
@@ -705,13 +785,15 @@ function renderLessonDetail(lessonNum){
   const rows = words.map(w=>`
     <div class="word-row">
       <div class="hanzi">${w.hanzi}</div>
-      <div class="pinyin">${w.pinyin}</div>
+      <div class="pinyin">${colorizePinyin(w.pinyin)}</div>
       <div class="meaning">${w.meaning}</div>
       <button class="speak-btn" data-hanzi="${w.hanzi}">🔊</button>
     </div>`).join('');
+  const grammarNote = LESSON_GRAMMAR[lessonNum] ? `<div class="grammar-note">📘 ${LESSON_GRAMMAR[lessonNum]}</div>` : '';
   app.innerHTML = `
     <div class="card">
       <h2>Bài ${lessonNum} · ${words.length} từ vựng mới</h2>
+      ${grammarNote}
       ${rows}
       <div class="center" style="margin-top:16px;">
         <button class="primary" id="startQuiz">Làm bài kiểm tra để hoàn thành</button>
@@ -745,7 +827,7 @@ function renderQuiz(lessonNum){
         <h2>Câu ${qi+1}/${questions.length}</h2>
         <div class="center" style="margin:14px 0;">
           <div class="hanzi" style="font-size:2.4rem;">${q.word.hanzi}</div>
-          <div class="pinyin">${q.word.pinyin}</div>
+          <div class="pinyin">${colorizePinyin(q.word.pinyin)}</div>
           <button class="speak-btn" id="qSpeak">🔊</button>
         </div>
         <div id="opts"></div>
@@ -933,7 +1015,7 @@ function renderFlash(){
         <p class="muted">Thẻ ${idx+1}/${queue.length}</p>
         <div class="flashcard" id="card">
           <div class="big">${w.hanzi}</div>
-          <div class="mid" id="pinyinLine" style="display:none;">${w.pinyin}</div>
+          <div class="mid" id="pinyinLine" style="display:none;">${colorizePinyin(w.pinyin)}</div>
           <div class="small" id="meaningLine" style="display:none;">${w.meaning}</div>
           <div class="muted" style="margin-top:10px;" id="hint">(chạm để lật thẻ)</div>
         </div>
@@ -994,7 +1076,100 @@ function renderProgress(){
       <h2>Huy hiệu</h2>
       <div class="badge-list">${badgesHtml}</div>
     </div>
+    <div class="card">
+      <h2>Sao lưu & nhắc học</h2>
+      <p class="muted">Tiến trình hiện chỉ lưu trên trình duyệt này (localStorage) — tải file sao lưu để không mất khi đổi máy hoặc xoá cache trình duyệt.</p>
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <button class="secondary" id="exportBtn">📥 Tải file sao lưu</button>
+        <button class="secondary" id="importBtn">📤 Khôi phục từ file</button>
+        <input type="file" id="importFile" accept=".json" style="display:none;">
+      </div>
+      <div style="margin-top:14px;">
+        <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+          <input type="checkbox" id="reminderToggle" ${state.reminderEnabled?'checked':''}>
+          🔔 Nhắc học mỗi ngày (khoảng 19:00 — chỉ hoạt động khi đang mở app/trình duyệt)
+        </label>
+      </div>
+    </div>
   `;
+  document.getElementById('exportBtn').onclick = exportBackup;
+  document.getElementById('importBtn').onclick = ()=> document.getElementById('importFile').click();
+  document.getElementById('importFile').onchange = (e)=>{
+    const file = e.target.files[0];
+    if(file) importBackupFile(file);
+  };
+  document.getElementById('reminderToggle').onchange = (e)=> toggleReminder(e.target.checked);
+}
+
+/* ---------- SAO LƯU / KHÔI PHỤC TIẾN TRÌNH ---------- */
+function exportBackup(){
+  const blob = new Blob([JSON.stringify(state, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const stamp = todayStr().replace(/-/g,'');
+  a.href = url;
+  a.download = `hoc-tieng-trung-backup-${stamp}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(()=> URL.revokeObjectURL(url), 2000);
+}
+
+function importBackupFile(file){
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    try{
+      const data = JSON.parse(reader.result);
+      if(typeof data !== 'object' || data===null) throw new Error('invalid');
+      state = Object.assign({}, state, data);
+      saveState();
+      showToast('✅ Đã khôi phục tiến trình thành công!');
+      render('progress');
+    }catch(e){
+      showToast('File không hợp lệ, không thể khôi phục tiến trình.');
+    }
+  };
+  reader.readAsText(file);
+}
+
+/* ---------- NHẮC HỌC HẰNG NGÀY (best-effort — chỉ chạy khi app đang mở) ---------- */
+let _reminderInterval = null;
+function startReminderChecker(){
+  if(_reminderInterval) return;
+  _reminderInterval = setInterval(()=>{
+    if(!state.reminderEnabled) return;
+    const now = new Date();
+    const t = todayStr();
+    if(now.getHours() >= 19 && state.lastActive !== t && state.lastReminderDate !== t){
+      state.lastReminderDate = t;
+      saveState();
+      try{ new Notification('学中文 · Đến giờ học tiếng Trung rồi!', {body:'Hôm nay bạn chưa học — vào ôn vài từ vựng để giữ streak nhé.'}); }catch(e){}
+    }
+  }, 5*60*1000);
+}
+
+function toggleReminder(enabled){
+  if(enabled){
+    if(!('Notification' in window)){
+      showToast('Trình duyệt này không hỗ trợ thông báo nhắc học.');
+      render('progress');
+      return;
+    }
+    Notification.requestPermission().then(perm=>{
+      if(perm === 'granted'){
+        state.reminderEnabled = true;
+        saveState();
+        showToast('🔔 Đã bật nhắc học! Lưu ý: chỉ hoạt động khi bạn đang mở trình duyệt/app, không phải thông báo nền thật sự — nên mở app mỗi ngày để chắc chắn.');
+        startReminderChecker();
+      }else{
+        showToast('Bạn cần cho phép thông báo trong trình duyệt để dùng tính năng này.');
+        render('progress');
+      }
+    });
+  }else{
+    state.reminderEnabled = false;
+    saveState();
+  }
 }
 
 /* ---------- SPEECH RECOGNITION (luyện nói, miễn phí) ---------- */
@@ -1287,7 +1462,7 @@ function startSentenceSession(){
       <div class="card">
         <h2>Bước 3/3 · Điền từ vào chỗ trống</h2>
         <div class="center hanzi" style="font-size:1.6rem; margin:14px 0;">${sentenceWithBlank}</div>
-        <p class="pinyin center">${s.pinyin}</p>
+        <p class="pinyin center">${colorizePinyin(s.pinyin)}</p>
         <div id="opts"></div>
       </div>`;
     const optsDiv = document.getElementById('opts');
@@ -1315,7 +1490,7 @@ function startSentenceSession(){
         <h2>Bonus · Luyện nói</h2>
         <div class="grammar-note">📘 ${s.grammar}</div>
         <div class="center hanzi" style="font-size:1.8rem; margin:10px 0;">${fullText}</div>
-        <p class="pinyin center">${s.pinyin}</p>
+        <p class="pinyin center">${colorizePinyin(s.pinyin)}</p>
         <div class="center" style="display:flex; gap:8px; justify-content:center; flex-wrap:wrap;">
           <button class="secondary" id="listenSample">🔊 Nghe câu mẫu</button>
           <button class="mic-btn" id="micBtn">🎤 Nhấn để nói</button>
@@ -1381,8 +1556,280 @@ function startSentenceSession(){
   nextSentence();
 }
 
+/* ---------- LUYỆN THANH ĐIỆU ---------- */
+const TONE_SETS = [
+  [{hanzi:"妈",pinyin:"mā",meaning:"mẹ"},{hanzi:"麻",pinyin:"má",meaning:"cây gai, tê"},{hanzi:"马",pinyin:"mǎ",meaning:"ngựa"},{hanzi:"骂",pinyin:"mà",meaning:"mắng, chửi"}],
+  [{hanzi:"衣",pinyin:"yī",meaning:"áo"},{hanzi:"姨",pinyin:"yí",meaning:"dì, mợ"},{hanzi:"椅",pinyin:"yǐ",meaning:"ghế"},{hanzi:"意",pinyin:"yì",meaning:"ý nghĩa"}],
+  [{hanzi:"汤",pinyin:"tāng",meaning:"canh, súp"},{hanzi:"糖",pinyin:"táng",meaning:"đường, kẹo"},{hanzi:"躺",pinyin:"tǎng",meaning:"nằm"},{hanzi:"烫",pinyin:"tàng",meaning:"bỏng, rất nóng"}],
+  [{hanzi:"锅",pinyin:"guō",meaning:"nồi, chảo"},{hanzi:"国",pinyin:"guó",meaning:"quốc gia"},{hanzi:"果",pinyin:"guǒ",meaning:"quả"},{hanzi:"过",pinyin:"guò",meaning:"qua, đã từng"}],
+  [{hanzi:"优",pinyin:"yōu",meaning:"ưu tú"},{hanzi:"游",pinyin:"yóu",meaning:"bơi, du lịch"},{hanzi:"有",pinyin:"yǒu",meaning:"có"},{hanzi:"又",pinyin:"yòu",meaning:"lại (một lần nữa)"}],
+  [{hanzi:"因",pinyin:"yīn",meaning:"vì, nguyên nhân"},{hanzi:"银",pinyin:"yín",meaning:"bạc"},{hanzi:"引",pinyin:"yǐn",meaning:"dẫn, thu hút"},{hanzi:"印",pinyin:"yìn",meaning:"in, dấu"}]
+];
+
+function renderTonesHome(){
+  app.innerHTML = `
+    <div class="card">
+      <h2>Luyện thanh điệu</h2>
+      <p>Người Việt hay nhầm 4 thanh điệu tiếng Trung dù tiếng Việt cũng có thanh điệu, vì hai hệ thống hoàn toàn khác nhau. Nghe app đọc 1 chữ, chọn đúng chữ bạn vừa nghe trong 4 chữ cùng âm nhưng khác thanh.</p>
+      <div class="tone-legend">
+        <span><i class="tone-dot" style="background:var(--tone1)"></i> Thanh 1 ngang cao</span>
+        <span><i class="tone-dot" style="background:var(--tone2)"></i> Thanh 2 đi lên</span>
+        <span><i class="tone-dot" style="background:var(--tone3)"></i> Thanh 3 xuống-lên</span>
+        <span><i class="tone-dot" style="background:var(--tone4)"></i> Thanh 4 đi xuống mạnh</span>
+      </div>
+      <button class="primary" id="startTones" style="margin-top:14px;">Bắt đầu luyện (8 câu)</button>
+    </div>`;
+  document.getElementById('startTones').onclick = startToneQuiz;
+}
+
+function startToneQuiz(){
+  const ROUNDS = 8;
+  let round = 0, correctCount = 0;
+  const rounds = [];
+  for(let i=0;i<ROUNDS;i++){
+    const set = TONE_SETS[Math.floor(Math.random()*TONE_SETS.length)];
+    const target = set[Math.floor(Math.random()*set.length)];
+    rounds.push({set, target});
+  }
+
+  function showRound(){
+    if(round >= ROUNDS){
+      const xpEarned = correctCount * 4;
+      addXp(xpEarned);
+      checkBadges();
+      app.innerHTML = `
+        <div class="card center">
+          <h2>🎉 Hoàn thành luyện thanh điệu!</h2>
+          <p>Đúng ${correctCount}/${ROUNDS} câu · +${xpEarned} XP</p>
+          <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:10px;">
+            <button class="primary" id="toneAgain">Luyện lại</button>
+            <button class="secondary" id="toneHome">Về trang chủ</button>
+          </div>
+        </div>`;
+      document.getElementById('toneAgain').onclick = startToneQuiz;
+      document.getElementById('toneHome').onclick = ()=>switchView('home');
+      return;
+    }
+    const {set, target} = rounds[round];
+    const shuffledOpts = shuffle(set.slice());
+    app.innerHTML = `
+      <div class="card">
+        <h2>Câu ${round+1}/${ROUNDS} · Nghe và chọn đúng chữ</h2>
+        <div class="center" style="margin:14px 0;">
+          <button class="mic-btn" id="playTone">🔊 Nghe lại</button>
+        </div>
+        <div id="toneOpts" style="display:grid; grid-template-columns:repeat(2,1fr); gap:10px;"></div>
+      </div>`;
+    speak(target.hanzi);
+    document.getElementById('playTone').onclick = ()=> speak(target.hanzi);
+    const optsDiv = document.getElementById('toneOpts');
+    shuffledOpts.forEach(opt=>{
+      const b = document.createElement('button');
+      b.className='quiz-opt';
+      b.innerHTML = `<div class="hanzi" style="font-size:1.6rem;">${opt.hanzi}</div><div class="pinyin">${colorizePinyin(opt.pinyin)}</div><div class="muted">${opt.meaning}</div>`;
+      b.onclick = ()=>{
+        if(optsDiv.dataset.answered) return;
+        optsDiv.dataset.answered = "1";
+        const correct = opt.hanzi === target.hanzi;
+        b.classList.add(correct?'correct':'wrong');
+        if(correct) correctCount++;
+        else{ [...optsDiv.children].find(c=>c.querySelector('.hanzi').textContent===target.hanzi)?.classList.add('correct'); }
+        setTimeout(()=>{ round++; showRound(); }, 900);
+      };
+      optsDiv.appendChild(b);
+    });
+  }
+  showRound();
+}
+
+/* ---------- THI THỬ HSK1 (MÔ PHỎNG) ---------- */
+const EXAM_QA = [
+  {q:"你叫什么名字？", a:"我叫小明。"},
+  {q:"你是哪国人？", a:"我是越南人。"},
+  {q:"现在几点？", a:"现在三点。"},
+  {q:"你喜欢喝什么？", a:"我喜欢喝茶。"},
+  {q:"这个多少钱？", a:"这个十块钱。"}
+];
+
+function buildExamQuestions(){
+  const qs = [];
+  shuffle(VOCAB.slice()).slice(0,5).forEach(w=>{
+    const distractors = shuffle(VOCAB.filter(v=>v.id!==w.id)).slice(0,3).map(v=>v.meaning);
+    const options = shuffle([w.meaning, ...distractors]);
+    qs.push({section:"Nghe · Từ vựng", type:"listen", audio:w.hanzi, prompt:"Nghe và chọn nghĩa đúng của từ", options, correct:w.meaning});
+  });
+  shuffle(SENTENCES.slice()).slice(0,5).forEach(s=>{
+    const fullText = s.tokens.join('');
+    const distractors = shuffle(SENTENCES.filter(x=>x.id!==s.id)).slice(0,3).map(x=>x.meaning);
+    const options = shuffle([s.meaning, ...distractors]);
+    qs.push({section:"Nghe · Câu", type:"listen", audio:fullText, prompt:"Nghe và chọn nghĩa đúng của câu", options, correct:s.meaning});
+  });
+  shuffle(EXAM_QA.slice()).forEach(pair=>{
+    const distractors = shuffle(EXAM_QA.filter(x=>x.a!==pair.a)).slice(0,3).map(x=>x.a);
+    const options = shuffle([pair.a, ...distractors]);
+    qs.push({section:"Nghe · Hỏi đáp", type:"listen", audio:pair.q, prompt:"Nghe câu hỏi, chọn câu trả lời đúng", options, correct:pair.a, hanziOptions:true});
+  });
+  shuffle(VOCAB.slice()).slice(0,5).forEach(w=>{
+    const distractors = shuffle(VOCAB.filter(v=>v.id!==w.id)).slice(0,3).map(v=>v.meaning);
+    const options = shuffle([w.meaning, ...distractors]);
+    qs.push({section:"Đọc · Từ vựng", type:"read-word", hanzi:w.hanzi, prompt:"Từ này nghĩa là gì?", options, correct:w.meaning});
+  });
+  shuffle(SENTENCES.slice()).slice(0,5).forEach(s=>{
+    const fullText = s.tokens.join('');
+    const isTrue = Math.random() < 0.5;
+    let statement = s.meaning;
+    if(!isTrue){
+      const others = SENTENCES.filter(x=>x.id!==s.id);
+      statement = others[Math.floor(Math.random()*others.length)].meaning;
+    }
+    qs.push({section:"Đọc · Đúng/Sai", type:"read-truefalse", hanzi:fullText, statement, correct:isTrue});
+  });
+  shuffle(SENTENCES.slice()).slice(0,5).forEach(s=>{
+    const fullText = s.tokens.join('');
+    const sentenceWithBlank = fullText.replace(s.blankWord, '＿＿');
+    const options = shuffle(s.blankOptions.slice());
+    qs.push({section:"Đọc · Điền từ", type:"read-word", hanzi:sentenceWithBlank, prompt:"Chọn từ đúng để điền vào chỗ trống", options, correct:s.blankWord, hanziOptions:true});
+  });
+  return qs;
+}
+
+function renderExamHome(){
+  app.innerHTML = `
+    <div class="card">
+      <h2>Thi thử HSK1 (mô phỏng)</h2>
+      <p>Bài thi thử rút gọn theo cấu trúc đề HSK1 thật: <b>15 câu Nghe</b> (từ vựng, câu, hỏi-đáp) + <b>15 câu Đọc</b> (từ vựng, đúng/sai, điền từ), có tính giờ 20 phút.</p>
+      <p class="muted">Lưu ý: đây là bản mô phỏng miễn phí để luyện tập, không có phần hình ảnh như đề thi chính thức và không thay thế cho việc đăng ký thi HSK1 thật.</p>
+      <button class="primary" id="startExamBtn">Bắt đầu thi thử</button>
+    </div>`;
+  document.getElementById('startExamBtn').onclick = startExam;
+}
+
+function startExam(){
+  const questions = buildExamQuestions();
+  let qi = 0, correctCount = 0;
+  const answers = [];
+  let timeLeft = 20*60;
+  let timerId = null;
+
+  function formatTime(sec){
+    const m = Math.floor(sec/60), s = sec%60;
+    return `${m}:${s<10?'0':''}${s}`;
+  }
+  function startTimer(){
+    timerId = setInterval(()=>{
+      timeLeft--;
+      const t = document.getElementById('examTimer');
+      if(t) t.textContent = formatTime(timeLeft);
+      if(timeLeft<=0){ clearInterval(timerId); finishExam(); }
+    }, 1000);
+  }
+
+  function showQuestion(){
+    if(qi >= questions.length){ clearInterval(timerId); finishExam(); return; }
+    const q = questions[qi];
+    let bodyHtml = '';
+    if(q.type==='listen'){
+      bodyHtml = `<p class="muted center">${q.prompt}</p><div class="center" style="margin:10px 0;"><button class="mic-btn" id="examPlay">🔊 Nghe</button></div>`;
+    }else if(q.type==='read-word'){
+      bodyHtml = `<div class="center hanzi" style="font-size:1.7rem; margin:10px 0;">${q.hanzi}</div><p class="muted center">${q.prompt}</p>`;
+    }else if(q.type==='read-truefalse'){
+      bodyHtml = `<div class="center hanzi" style="font-size:1.5rem; margin:10px 0;">${q.hanzi}</div><p class="center">Câu này có nghĩa là: <b>${q.statement}</b> — Đúng hay Sai?</p>`;
+    }
+    let optsHtml = q.type==='read-truefalse'
+      ? `<div id="opts"><button class="quiz-opt" data-val="true">Đúng ✓</button><button class="quiz-opt" data-val="false">Sai ✗</button></div>`
+      : `<div id="opts"></div>`;
+    app.innerHTML = `
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+          <h2 style="margin:0; border:none; padding:0;">Câu ${qi+1}/${questions.length} · ${q.section}</h2>
+          <div class="stat-chip" id="examTimer" style="background:var(--red); color:var(--paper);">${formatTime(timeLeft)}</div>
+        </div>
+        ${bodyHtml}
+        ${optsHtml}
+      </div>`;
+    if(q.type==='listen'){
+      speak(q.audio);
+      document.getElementById('examPlay').onclick = ()=> speak(q.audio);
+    }
+    const optsDiv = document.getElementById('opts');
+    if(q.type==='read-truefalse'){
+      optsDiv.querySelectorAll('button').forEach(b=>{
+        b.onclick = ()=>{
+          if(optsDiv.dataset.answered) return;
+          optsDiv.dataset.answered = "1";
+          const val = b.dataset.val === 'true';
+          const correct = val === q.correct;
+          b.classList.add(correct?'correct':'wrong');
+          if(correct) correctCount++;
+          answers.push({section:q.section, correct});
+          setTimeout(()=>{ qi++; showQuestion(); }, 600);
+        };
+      });
+    }else{
+      q.options.forEach(opt=>{
+        const b = document.createElement('button');
+        b.className = 'quiz-opt' + (q.hanziOptions ? ' hanzi' : '');
+        b.textContent = opt;
+        b.onclick = ()=>{
+          if(optsDiv.dataset.answered) return;
+          optsDiv.dataset.answered = "1";
+          const correct = opt === q.correct;
+          b.classList.add(correct?'correct':'wrong');
+          if(correct) correctCount++;
+          else{ [...optsDiv.children].find(c=>c.textContent===q.correct)?.classList.add('correct'); }
+          answers.push({section:q.section, correct});
+          setTimeout(()=>{ qi++; showQuestion(); }, 600);
+        };
+        optsDiv.appendChild(b);
+      });
+    }
+  }
+
+  function finishExam(){
+    const total = questions.length;
+    const scaledScore = Math.round(correctCount/total*200);
+    const passed = scaledScore >= 120;
+    const bySection = {};
+    answers.forEach(a=>{
+      if(!bySection[a.section]) bySection[a.section] = {correct:0, total:0};
+      bySection[a.section].total++;
+      if(a.correct) bySection[a.section].correct++;
+    });
+    const weakSections = Object.entries(bySection).filter(([k,v])=> v.correct/v.total < 0.6).map(([k])=>k);
+    const xpEarned = correctCount*5;
+    addXp(xpEarned);
+    checkBadges();
+    app.innerHTML = `
+      <div class="card center">
+        <h2>${passed?'🎉 Đạt':'📖 Chưa đạt'} · Kết quả thi thử</h2>
+        <p>Đúng ${correctCount}/${total} câu</p>
+        <p style="font-size:1.4rem; font-weight:bold; color:var(--red-dark);">${scaledScore}/200 điểm</p>
+        <p class="muted">Ngưỡng tham khảo để "đạt" HSK1 thường là 120/200 — đây là bài thi thử tự tạo để luyện tập, không phải điểm số chính thức.</p>
+        ${weakSections.length? `<p class="muted">Phần cần ôn thêm: <b>${weakSections.join(', ')}</b></p>` : ''}
+        <p>+${xpEarned} XP</p>
+        <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:10px;">
+          <button class="primary" id="examAgain">Thi lại</button>
+          <button class="secondary" id="examHome">Về trang chủ</button>
+        </div>
+      </div>`;
+    document.getElementById('examAgain').onclick = startExam;
+    document.getElementById('examHome').onclick = ()=>switchView('home');
+  }
+
+  startTimer();
+  showQuestion();
+}
+
 /* ---------- INIT ---------- */
 if('speechSynthesis' in window){ speechSynthesis.getVoices(); }
+if(state.reminderEnabled && 'Notification' in window && Notification.permission === 'granted'){
+  startReminderChecker();
+}
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('service-worker.js').catch(()=>{});
+  });
+}
 render('home');
 </script>
 </body>
