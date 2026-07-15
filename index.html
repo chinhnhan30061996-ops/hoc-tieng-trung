@@ -367,7 +367,7 @@
 
 <footer>MVP demo · dữ liệu lưu trên trình duyệt này (localStorage) · <span class="stamp">HSK1</span></footer>
 
-<script src="https://cdn.jsdelivr.net/npm/hanzi-writer@3.7/dist/hanzi-writer.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/hanzi-writer@3.7/dist/hanzi-writer.min.js"></script>
 <script>
 /* ================= FIX LỖI DẤU TIẾNG VIỆT (Unicode NFC) ================= */
 (function(){
@@ -771,14 +771,33 @@ function renderWritingPractice(lessonNum, words, quizCorrectCount){
     });
   });
 
-  if(typeof HanziWriter === 'undefined' || chars.length === 0){
+  let ci = 0;
+  let totalMistakes = 0;
+  let writer = null;
+
+  if(chars.length === 0){
     finishLesson(0);
     return;
   }
 
-  let ci = 0;
-  let totalMistakes = 0;
-  let writer = null;
+  if(typeof HanziWriter === 'undefined'){
+    // Thư viện luyện viết tải trong nền (defer) — chờ tối đa vài giây, không chặn cả app
+    app.innerHTML = `<div class="card center"><p class="muted">Đang tải công cụ luyện viết…</p></div>`;
+    let waited = 0;
+    const waitForLib = setInterval(()=>{
+      waited += 300;
+      if(typeof HanziWriter !== 'undefined'){
+        clearInterval(waitForLib);
+        showChar();
+      } else if(waited >= 5000){
+        clearInterval(waitForLib);
+        finishLesson(0);
+      }
+    }, 300);
+    return;
+  }
+
+  showChar();
 
   function showChar(){
     if(ci >= chars.length){
@@ -854,8 +873,6 @@ function renderWritingPractice(lessonNum, words, quizCorrectCount){
       </div>`;
     document.getElementById('toLessons').onclick = ()=> switchView('lessons');
   }
-
-  showChar();
 }
 
 /* ---------- FLASHCARD SRS (Leitner) ---------- */
