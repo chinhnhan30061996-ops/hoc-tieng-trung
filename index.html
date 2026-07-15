@@ -309,6 +309,15 @@
     border-radius:8px;
     background: var(--paper-dark);
   }
+  .speech-chars{ margin:10px 0; font-size:1.5rem; }
+  .speech-char{
+    display:inline-block;
+    padding:2px 6px;
+    margin:2px;
+    border-radius:6px;
+  }
+  .speech-char.ok{ background:#e3ecd9; color:var(--green); }
+  .speech-char.miss{ background:#f4e6cf; color:var(--tone2); }
   .hanzi-target-box{
     display:inline-block;
     background:#fff;
@@ -1185,6 +1194,18 @@ function similarity(a,b){
   });
   return match / Math.max(a.length, b.length);
 }
+// So sánh từng chữ của câu mẫu với những gì nhận diện được, để chấm khoan dung hơn
+// và cho biết chính xác chữ nào ổn / chữ nào cần luyện thêm (thay vì chỉ 1 kết quả đúng/sai chung).
+function compareSpeechChars(said, target){
+  const saidChars = normalizeZh(said).split('');
+  const targetChars = normalizeZh(target).split('');
+  const pool = saidChars.slice();
+  return targetChars.map(ch=>{
+    const idx = pool.indexOf(ch);
+    if(idx>-1){ pool.splice(idx,1); return {ch, matched:true}; }
+    return {ch, matched:false};
+  });
+}
 function isIOSDevice(){
   return /iPad|iPhone|iPod/.test(navigator.userAgent) ||
          (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -1507,11 +1528,18 @@ function startSentenceSession(){
     const resultDiv = document.getElementById('speechResult');
 
     function showAutoVerdict(said){
-      const sim = similarity(said, fullText);
-      const verdict = sim>=0.7 ? '✅ Rất tốt!' : sim>=0.4 ? '🟡 Gần đúng, thử lại nhé' : '🔴 Chưa đúng, nghe lại và thử lại';
+      // Chấm khoan dung + phản hồi theo từng chữ: giọng người Việt nói tiếng Trung
+      // hiếm khi được máy nhận diện đúng 100%, nên thay vì 1 kết quả đúng/sai chung,
+      // app chỉ ra rõ chữ nào ổn (xanh) và chữ nào cần luyện thêm (vàng) để không nản.
+      const chars = compareSpeechChars(said, fullText);
+      const ratio = chars.length ? chars.filter(c=>c.matched).length / chars.length : 0;
+      const verdict = ratio>=0.5 ? '✅ Rất tốt!' : ratio>=0.25 ? '🟡 Khá ổn, gần đúng rồi — thử lại để chuẩn hơn nhé' : '💪 Cứ luyện tiếp, đừng nản — nghe lại câu mẫu rồi thử lại nhé';
+      const charsHtml = chars.map(c=>`<span class="speech-char ${c.matched?'ok':'miss'}">${c.ch}</span>`).join('');
       resultDiv.innerHTML = `
         <div class="speech-result">
-          Bạn nói: <b>${said}</b><br>${verdict}
+          Bạn nói: <b>${said}</b>
+          <div class="speech-chars">${charsHtml}</div>
+          ${verdict}
           <div class="center" style="margin-top:8px;">
             <button class="secondary" id="listenSampleAgain">🔊 Nghe lại câu mẫu</button>
           </div>
